@@ -41,25 +41,22 @@ class FridaDumper:
         self, target, retries: int, delay: float, timeout: Optional[float] = None
     ):
         last_error = None
+
         for attempt in range(1, retries + 1):
             try:
                 if retries > 1:
                     print(f"Attach attempt {attempt}/{retries}...")
-                if timeout is None:
-                    self._session = self._device.attach(target)
-                else:
-                    cancellable = frida.Cancellable()
-                    timer = threading.Timer(timeout, cancellable.cancel)
-                    timer.start()
-                    try:
-                        self._session = self._device.attach(target, cancellable=cancellable)
-                    finally:
-                        timer.cancel()
+
+                # Compatible with Frida 17.19.0
+                self._session = self._device.attach(target)
+
                 self._load_agent()
                 return
+
             except (frida.TransportError, frida.OperationCancelledError) as exc:
                 last_error = exc
                 time.sleep(delay)
+
         if last_error:
             raise last_error
 
@@ -81,12 +78,14 @@ class FridaDumper:
 
     def get_bundle_info(self, retries: int = 40, delay: float = 0.25):
         last_error = None
+
         for _ in range(retries):
             try:
                 return self._script.exports.getbundleinfo()
             except Exception as exc:
                 last_error = exc
                 time.sleep(delay)
+
         raise RuntimeError("Failed to fetch bundle info") from last_error
 
     def dump_executable(self, out_path: str):
